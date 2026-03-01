@@ -27,26 +27,40 @@ export default function BalanceCalculationPage() {
     selling > 0 &&
     balance > 0 &&
     topUp > 0 &&
-    (mode === "minute" || (sec > 0 && !isNaN(sec)));
+    sec > 0;
 
-  // Convert prices based on mode
+  // 🔥 Buying conversion (depends on mode)
   const buyingConverted = mode === "minute" ? buying : (buying / 60) * sec;
-  const sellingConverted = mode === "minute" ? selling : (selling / 60) * sec;
+
+  // 🔥 Selling is ALWAYS per billing seconds
+  const sellingPerBlock = selling; // selling is per 6 sec (default)
+
+  // Convert selling to per minute (used in minute mode)
+  const sellingPerMinute = sellingPerBlock * (60 / sec);
 
   // Step 1: Available balance in $
   const availableBalance = isValid ? (balance / 100) * 100 : 0;
 
-  // Step 2: Your total minutes or blocks
-  const yourUnits = isValid ? availableBalance / buyingConverted : 0;
+  // Step 2: Your total units
+  const yourUnits = isValid
+    ? mode === "minute"
+      ? availableBalance / buying
+      : availableBalance / buyingConverted
+    : 0;
 
   // Step 3: Client units
-  const clientUnits = isValid ? topUp / sellingConverted : 0;
+  const clientUnits = isValid
+    ? mode === "minute"
+      ? topUp / sellingPerMinute
+      : topUp / sellingPerBlock
+    : 0;
 
   // Step 4: Remaining units
   const remainingUnits = isValid ? yourUnits - clientUnits : 0;
 
-  // Step 5: If seconds mode → convert to total seconds and equivalent minutes
+  // Extra calculations for seconds mode
   const totalSeconds = mode === "seconds" ? yourUnits * sec : 0;
+
   const totalMinutesFromSeconds = mode === "seconds" ? totalSeconds / 60 : 0;
 
   return (
@@ -56,16 +70,14 @@ export default function BalanceCalculationPage() {
           Balance Calculation
         </h2>
 
-        {/* Toggle */}
         <Toggle mode={mode} setMode={setMode} />
 
-        {mode === "seconds" && (
-          <InputField
-            label="Billing Seconds (e.g. 6)"
-            value={seconds}
-            setValue={setSeconds}
-          />
-        )}
+        {/* Billing Seconds - Always Visible */}
+        <InputField
+          label="Billing Seconds (Default 6)"
+          value={seconds}
+          setValue={setSeconds}
+        />
 
         {/* Buying Price */}
         <InputField
@@ -81,9 +93,9 @@ export default function BalanceCalculationPage() {
           setValue={setBalancePercent}
         />
 
-        {/* Selling Price */}
+        {/* 🔥 Selling Price (Always per seconds) */}
         <InputField
-          label={`Selling Price ($ per ${mode})`}
+          label={`Selling Price ($ per ${seconds} sec)`}
           value={sellingPrice}
           setValue={setSellingPrice}
         />
@@ -95,7 +107,6 @@ export default function BalanceCalculationPage() {
           setValue={setClientTopUp}
         />
 
-        {/* Results */}
         {isValid && (
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 space-y-3 text-sm">
             {mode === "minute" ? (
@@ -107,7 +118,9 @@ export default function BalanceCalculationPage() {
                   Client Minutes: {clientUnits.toFixed(2)}
                 </p>
                 <p
-                  className={`font-bold text-lg ${remainingUnits < 0 ? "text-red-600" : "text-emerald-700"}`}
+                  className={`font-bold text-lg ${
+                    remainingUnits < 0 ? "text-red-600" : "text-emerald-700"
+                  }`}
                 >
                   Remaining Minutes: {remainingUnits.toFixed(2)}
                 </p>
